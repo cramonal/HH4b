@@ -139,6 +139,9 @@ def run(p: processor, fileset: dict, skipbadfiles: bool, args):
     # try file opening 3 times if it fails
     for i in range(3):
         try:
+            print("p")
+            print(fileset)
+            print(p)
             out, metrics = run(fileset, "Events", processor_instance=p)
             break
         except FileNotFoundError as e:
