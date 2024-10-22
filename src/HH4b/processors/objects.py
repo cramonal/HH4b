@@ -366,3 +366,31 @@ def ak4_jets_awayfromak8(
     # return all nonoverlapping jets, no sorting
     else:
         return jets[ak4_sel]
+
+
+def ak4_jets_awayfrom1bbFat(
+    jets: JetArray,
+    fatjets: FatJetArray,
+    year: str,
+    nano_version,
+):
+    """AK4 jets nonoverlapping with first AK8 fatjet"""
+
+    FirstFatjet = ak.firsts(fatjets[:, 0:1])
+    jets_away = jets
+
+    # take the two with lower dR(j,B)
+    jets_away_fatjet0 = jets_away[ak.argsort(jets_away.delta_r(FirstFatjet), ascending=False)][
+        :, 0:2
+    ]
+    # reorder using btag score
+    if year == "2022" and nano_version == "v12v2_private":
+        jets_away_fatjet0_reorder = jets_away_fatjet0[
+            ak.argsort(jets_away_fatjet0.btagDeepFlavB, ascending=False)
+        ]
+    else:
+        jets_away_fatjet0_reorder = jets_away_fatjet0[
+            ak.argsort(jets_away_fatjet0.btagPNetB, ascending=False)
+        ]
+
+    return jets_away_fatjet0_reorder

@@ -345,9 +345,9 @@ class bbbbSkimmer(SkimmerABC):
         - 0 veto leptons
         semiboosted region:
         - boosted and resolved HLT OR for both data and MC
-        - >=1 AK8 jet
-        - >=1 AK8 jet with pT>250
-        - >=1 AK8 Jet with mSD>60 or mReg>60
+        - >=4 AK4 jets
+        - >=4 AK4 btaged medium
+        - 0 lepton
         semilep-tt region:
         - HLT OR for both data and MC
         - >=1 "good" isolated lepton with pT>50
@@ -494,7 +494,7 @@ class bbbbSkimmer(SkimmerABC):
 
         print("ak4 JECs", f"{time.time() - start:.2f}")
         if self._region == "semiboosted":
-            jets_sel = (jets.pt > 30) & (abs(jets.eta) < 2.5) & (jets.isTight)
+            jets_sel = (jets.pt > 10) & (abs(jets.eta) < 4.7) & (jets.isTight)
         else:
             jets_sel = (jets.pt > 15) & (jets.isTight) & (abs(jets.eta) < 4.7)
         if not is_run3:
@@ -648,6 +648,30 @@ class bbbbSkimmer(SkimmerABC):
                 for (var, key) in jet_skimvars.items()
             }
 
+        # Order jets using btag score
+        if self._region == "semiboosted":
+            if year == "2022" and self._nano_version == "v12v2_private":
+                jets_btagordering = jets[ak.argsort(jets.btagDeepFlavB, ascending=False)]
+            else:
+                jets_btagordering = jets[ak.argsort(jets.btagPNetB, ascending=False)]
+            ak4JetVars = {
+                f"ak4Jet{key}": pad_val(jets_btagordering[var], num_jets, axis=1)
+                for (var, key) in jet_skimvars.items()
+            }
+
+            ak4_jets_awayfrom1bbFat = objects.ak4_jets_awayfrom1bbFat(
+                jets_btagordering[:, :4],
+                fatjets_xbb[:, :2],
+                year,
+                self._nano_version,
+            )
+
+            print(ak4_jets_awayfrom1bbFat)
+            ak4JetNobbVars = {
+                f"ak4JetNobb{key}": pad_val(ak4_jets_awayfrom1bbFat[var], 2, axis=1)
+                for (var, key) in jet_skimvars.items()
+            }
+
         # AK8 Jet variables
         fatjet_skimvars = self.skim_vars["FatJet"]
         if not isData:
@@ -689,6 +713,16 @@ class bbbbSkimmer(SkimmerABC):
                     # overwrite saved mass vars with corrected ones
                     label = "" if shift == "" else "_" + shift
                     bbFatJetVars[f"bbFatJet{key}{label}"] = vals
+
+        # Adding dR ak4 and bbFat
+        Firstbbjet = ak.firsts(fatjets_xbb[:, 0:1])
+        Secondbbjet = ak.firsts(fatjets_xbb[:, 1:2])
+        ak4JetVars["ak4Jetdr_bbFatJet0"] = pad_val(
+            ak.flatten(jets_btagordering.metric_table(Firstbbjet), axis=-1), num_jets, axis=1
+        )
+        ak4JetVars["ak4Jetdr_bbFatJet1"] = pad_val(
+            ak.flatten(jets_btagordering.metric_table(Secondbbjet), axis=-1), num_jets, axis=1
+        )
 
         # Event variables
         met_pt = met.pt
@@ -787,18 +821,32 @@ class bbbbSkimmer(SkimmerABC):
                                 vbf_jets[shift][vari][var], 2, axis=1
                             )
 
-        skimmed_events = {
-            **genVars,
-            **eventVars,
-            **pileupVars,
-            **HLTVars,
-            **ak4JetAwayVars,
-            **ak8FatJetVars,
-            **bbFatJetVars,
-            **trigObjFatJetVars,
-            **vbfJetVars,
-        }
-
+        if self._region == "semiboosted":
+            skimmed_events = {
+                **genVars,
+                **eventVars,
+                **pileupVars,
+                **HLTVars,
+                **ak4JetVars,
+                **ak4JetNobbVars,
+                **ak8FatJetVars,
+                **bbFatJetVars,
+                **trigObjFatJetVars,
+                **vbfJetVars,
+            }
+        else:
+            skimmed_events = {
+                **genVars,
+                **eventVars,
+                **pileupVars,
+                **HLTVars,
+                **ak4JetVars,
+                **ak4JetAwayVars,
+                **ak8FatJetVars,
+                **bbFatJetVars,
+                **trigObjFatJetVars,
+                **vbfJetVars,
+            }
         if self._region == "signal":
             bdtVars = self.getBDT(bbFatJetVars, vbfJetVars, ak4JetAwayVars, met_pt, "")
             print(bdtVars)
@@ -828,6 +876,12 @@ class bbbbSkimmer(SkimmerABC):
         ######################
         # Selection
         ######################
+
+        # Adding parking trigger for data only in 2023
+        if (year == "2023") and (~isData) and (events.run >= 367661 and events.run <= 370790):
+            self.HLTs[year].append(
+                "QuadPFJet70_50_40_35_PNet2BTagMean0p65"
+            )  # for few /fb and only for data
 
         # OR-ing HLT triggers
         for trigger in self.HLTs[year]:
@@ -914,7 +968,20 @@ class bbbbSkimmer(SkimmerABC):
                 (ak.sum(veto_muon_sel, axis=1) == 0) & (ak.sum(veto_electron_sel, axis=1) == 0),
                 *selection_args,
             )
+        elif self._region == "semiboosted":
+            # AK4 jet noise filter, jet veto map, 2 ak4 jet pT > 30,  eta<2.5, tight ID
+            add_selection("ak4_numjets", (ak.num(jets) >= 4), *selection_args)
 
+            # >= two AK4 jets pass medium WP (Run3Summer22)
+            add_selection(
+                "ak4jet_btag", (ak.sum(jets.btagDeepFlavB >= 0.3091, axis=1) >= 2), *selection_args
+            )
+            # 0 veto leptons
+            add_selection(
+                "0lep",
+                (ak.sum(veto_muon_sel, axis=1) == 0) & (ak.sum(veto_electron_sel, axis=1) == 0),
+                *selection_args,
+            )
         elif self._region == "semilep-tt":
             # >=1 "good" isolated lepton with pT>50
             add_selection("lepton_pt", np.sum((leptons.pt > 50), axis=1) >= 1, *selection_args)
