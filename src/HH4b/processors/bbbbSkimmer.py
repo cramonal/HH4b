@@ -598,16 +598,28 @@ class bbbbSkimmer(SkimmerABC):
             if d in dataset:
                 # match fatjets_xbb
                 vars_dict = gen_selection_dict[d](
-                    events, jets, fatjets_xbb, selection_args, P4, "bbFatJet"
+                    events,
+                    jets,
+                    fatjets_xbb,
+                    selection_args,
+                    P4,
+                    "bbFatJet",
+                    "ak4Jet",
                 )
                 # match fatjets
                 vars_dict = gen_selection_dict[d](
-                    events, jets, fatjets, selection_args, P4, "ak8FatJet"
+                    events,
+                    jets,
+                    fatjets,
+                    selection_args,
+                    P4,
+                    "ak8FatJet",
+                    "ak4Jet",
                 )
                 genVars = {**genVars, **vars_dict}
 
         # remove unnecessary ak4 gen variables for signal region
-        if self._region == "signal" or self._region == "semiboosted":
+        if self._region == "signal":
             genVars = {key: val for (key, val) in genVars.items() if not key.startswith("ak4Jet")}
 
         # used for normalization to cross section below
@@ -671,6 +683,42 @@ class bbbbSkimmer(SkimmerABC):
                 f"ak4JetNobb{key}": pad_val(ak4_jets_awayfrom1bbFat[var], 2, axis=1)
                 for (var, key) in jet_skimvars.items()
             }
+
+            genVars = {}
+            for d in gen_selection_dict:
+                if d in dataset:
+                    # match fatjets_xbb
+                    vars_dict1 = gen_selection_dict[d](
+                        events,
+                        jets_btagordering,
+                        fatjets_xbb,
+                        selection_args,
+                        P4,
+                        "bbFatJet",
+                        "ak4Jet",
+                    )
+                    # match fatjets
+                    vars_dict2 = gen_selection_dict[d](
+                        events,
+                        jets_btagordering,
+                        fatjets,
+                        selection_args,
+                        P4,
+                        "ak8FatJet",
+                        "ak4Jet",
+                    )
+
+                    # match fatjets
+                    vars_dict3 = gen_selection_dict[d](
+                        events,
+                        ak4_jets_awayfrom1bbFat,
+                        fatjets,
+                        selection_args,
+                        P4,
+                        "bbFatJet",
+                        "ak4JetNobb",
+                    )
+                    genVars = {**genVars, **vars_dict1, **vars_dict2, **vars_dict3}
 
         # AK8 Jet variables
         fatjet_skimvars = self.skim_vars["FatJet"]

@@ -69,6 +69,7 @@ def gen_selection_HHbbbb(
     selection_args: list,
     skim_vars: dict,
     fatjet_str: str,
+    jet_str: str,
 ):
     """
     Gets HH, bb 4-vectors, and matches to AK4 jets and AK8 jets
@@ -77,7 +78,10 @@ def gen_selection_HHbbbb(
         "bbFatJet",
         "ak8FatJet",
     ], "fatjet_str parameter must be bbFatJet or ak8FatJet"
-
+    assert jet_str in [
+        "ak4JetNobb",
+        "ak4Jet",
+    ], "jet_str parameter must be bbFatJet or ak8FatJet"
     # finding the two gen higgs
     higgs = events.GenPart[
         (abs(events.GenPart.pdgId) == HIGGS_PDGID) * events.GenPart.hasFlags(GEN_FLAGS)
@@ -124,7 +128,7 @@ def gen_selection_HHbbbb(
 
     num_jets = 6
     ak4JetVars = {
-        f"ak4Jet{var}": pad_val(jets[var], num_jets, axis=1)
+        f"{jet_str}{var}": pad_val(jets[var], num_jets, axis=1)
         for var in ["HiggsMatch", "HiggsMatchIndex", "hadronFlavour"]
     }
 
