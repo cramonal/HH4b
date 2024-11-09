@@ -997,26 +997,6 @@ class bbbbSkimmer(SkimmerABC):
             # add_selection("vbf_veto", ~(cut_vbf), *selection_args)
 
         elif self._region == "semiboosted":
-            # >= two AK8 jet, selection is same with boosted
-            # as skimmer selection is generally looser than AN selection
-            # more differences from boosted can be implemented in the postprocessors
-            add_selection("ak8_numjets", (ak.num(fatjets) >= 1), *selection_args)
-
-            # AK4 jet noise filter, jet veto map, 2 ak4 jet pT > 30,  eta<2.5, tight ID
-            add_selection("ak4_numjets", (ak.num(jets) >= 2), *selection_args)
-
-            # >= two AK4 jets pass loose WP (Run3Summer22)
-            add_selection(
-                "ak4jet_btag", (ak.sum(jets.btagDeepFlavB >= 0.0583, axis=1) >= 2), *selection_args
-            )
-
-            # 0 veto leptons
-            add_selection(
-                "0lep",
-                (ak.sum(veto_muon_sel, axis=1) == 0) & (ak.sum(veto_electron_sel, axis=1) == 0),
-                *selection_args,
-            )
-        elif self._region == "semiboosted":
             # AK4 jet noise filter, jet veto map, 2 ak4 jet pT > 30,  eta<2.5, tight ID
             add_selection("ak4_numjets", (ak.num(jets) >= 4), *selection_args)
 
