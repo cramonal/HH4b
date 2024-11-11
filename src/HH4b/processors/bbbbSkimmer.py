@@ -595,7 +595,7 @@ class bbbbSkimmer(SkimmerABC):
         # Gen variables - saving HH and bbbb 4-vector info
         genVars = {}
         for d in gen_selection_dict:
-            if d in dataset:
+            if d in dataset and d == "HHto4B":
                 # match fatjets_xbb
                 vars_dict = gen_selection_dict[d](
                     events,
@@ -604,7 +604,7 @@ class bbbbSkimmer(SkimmerABC):
                     selection_args,
                     P4,
                     "bbFatJet",
-                    "ak4Jet",
+                    "ak4Jet",  # if HH
                 )
                 # match fatjets
                 vars_dict = gen_selection_dict[d](
@@ -615,6 +615,26 @@ class bbbbSkimmer(SkimmerABC):
                     P4,
                     "ak8FatJet",
                     "ak4Jet",
+                )
+                genVars = {**genVars, **vars_dict}
+            elif d in dataset and d != "HHto4B":
+                # match fatjets_xbb
+                vars_dict = gen_selection_dict[d](
+                    events,
+                    jets,
+                    fatjets_xbb,
+                    selection_args,
+                    P4,
+                    "bbFatJet",
+                )
+                # match fatjets
+                vars_dict = gen_selection_dict[d](
+                    events,
+                    jets,
+                    fatjets,
+                    selection_args,
+                    P4,
+                    "ak8FatJet",
                 )
                 genVars = {**genVars, **vars_dict}
 
